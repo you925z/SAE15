@@ -41,7 +41,7 @@ with open("C:/Users/ouamr/SAE15/enquete-police-municipal.csv", newline='', encod
 #                  NOMBRE DE VILLE DANS UN DEPARTEMENT 
 
 # def nb_ville_dep(filename):
-    res = {}
+    #res = {}
 
 #    with open(filename, newline='', encoding='utf-8') as f:
 #        lecteur = csv.DictReader(f, delimiter=',')
