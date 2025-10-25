@@ -4,6 +4,8 @@ with open("C:/Users/ouamr/SAE15/enquete-police-municipal.csv", newline='', encod
     csvreader = csv.reader(f, delimiter=',') 
     header = next(csvreader)  # saute la première ligne (les titres des colonnes)
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+
 #             CREER DES DICTIONNAIRE POUR CHAQUE DONNE
     departement = []
     communes = []
@@ -15,6 +17,11 @@ with open("C:/Users/ouamr/SAE15/enquete-police-municipal.csv", newline='', encod
     maitre_chien = []
     chien_police = []
     commune_brigade_cynophile = []
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
 
 #               DEFINIT CHAQUE LIGNE A CHAQUE DONNEES 
 
@@ -37,30 +44,34 @@ with open("C:/Users/ouamr/SAE15/enquete-police-municipal.csv", newline='', encod
 #        if i >= 5:  # ici on en a 5 
 #            break 
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
 
 #                  NOMBRE DE VILLE DANS UN DEPARTEMENT 
 
-# def nb_ville_dep(filename):
-    #res = {}
+def nb_ville_dep(filename):  
+    res = {}  
+    with open(filename, 'r', encoding='utf-8', newline='') as file:
+        csvreader = csv.DictReader(file, delimiter=',')
+        for row in csvreader:
+            dep = row.get('departement')
+            if dep:
+                if dep in res:
+                    res[dep] += 1  
+                else:
+                    res[dep] = 1   
+    return res
 
-#    with open(filename, newline='', encoding='utf-8') as f:
-#        lecteur = csv.DictReader(f, delimiter=',')
+fichier_csv = r"C:\Users\ouamr\SAE15\enquete-police-municipal.csv"
 
-#        for row in lecteur:
-#            dep = row.get('departement')
+resultat = nb_ville_dep(fichier_csv)
 
-#            if dep:
-#                dep = dep.strip().upper()  # retire les espaces et met tout en majuscule
-#                if dep.isdigit():          # si c’est un numéro
-#                    dep = dep.zfill(2)     # ajoute un 0 devant (ex: '1' → '01')
-#                res[dep] = res.get(dep, 0) + 1
+for dep, nb in sorted(resultat.items()):
+    print(f"Département {dep} : {nb} villes")
 
-#    return res
 
-#fichier_csv = r"C:\Users\ouamr\SAE15\enquete-police-municipal.csv"
 
-#resultat = nb_ville_dep(fichier_csv)
 
-#print("Nombre de villes par département :")
-#for dep, nb in sorted(resultat.items()):
-#    print(f"Département {dep} : {nb} villes")
+#-------------------------------------------------------------------------------------------------------------------------------------------------
