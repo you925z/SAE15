@@ -1,17 +1,41 @@
-# build_site.py
-# Multi-pages : index (donut global) + 5 pages par specialite
+## build_site.py
+# Multi-pages : index (donut global interactif) + 5 pages par spécialité (barres PNG)
 # CSV attendu : departement, habitants, agents_police, asvp, gardes_champetres, maitre_chien, chien_police, ...
 
 from pathlib import Path
 from collections import defaultdict, Counter
-import csv, html, io, base64
+import csv, html, io, base64, json
 
-# ===== matplotlib pour les graphiques =====
+# ===== Thème/couleurs du site =====
+SITE_BG_DARK   = "#0f1b24"
+SITE_TEXT      = "#dfe9e9"
+SITE_TEAL      = "#3aa59f"   # couleur principale pour les barres
+SITE_TEAL_DARK = "#2f7a76"
+
+# Palette pour ECharts (du clair au foncé)
+ECHARTS_PALETTE = [
+    "#7fd8d0", "#62c9c0", "#49b8af", "#3aa59f", "#2f8f89",
+    "#2a7a75", "#256864", "#1f5856", "#174746", "#113a3a"
+]
+
+# ===== Matplotlib pour les graphiques (pages spécialités) =====
 _has_mpl = True
 try:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    # Style sombre/assorti
+    matplotlib.rcParams.update({
+        "figure.facecolor": "none",
+        "axes.facecolor": "none",
+        "savefig.transparent": True,
+        "text.color": SITE_TEXT,
+        "axes.edgecolor": SITE_TEXT,
+        "axes.labelcolor": SITE_TEXT,
+        "xtick.color": SITE_TEXT,
+        "ytick.color": SITE_TEXT,
+        "grid.color": "#24424a",
+    })
 except Exception:
     _has_mpl = False
 
@@ -39,41 +63,92 @@ def to_num(v) -> float:
     except ValueError:
         return 0.0
 
-# ---------- Graphiques base64 ----------
+# ---------- Graphiques base64 (Matplotlib) ----------
 def fig_to_b64():
     buf = io.BytesIO()
-    plt.savefig(buf, format="png", bbox_inches="tight", dpi=150)
+    plt.savefig(buf, format="png", bbox_inches="tight", dpi=150, transparent=True)
     plt.close()
     buf.seek(0)
     return "data:image/png;base64," + base64.b64encode(buf.read()).decode("ascii")
 
 def bar_chart(labels, values, title, rotation=0):
-    plt.figure(figsize=(9, 4.5))
-    plt.bar(range(len(labels)), values)
+    plt.figure(figsize=(9, 4.8))
+    bars = plt.bar(range(len(labels)), values, color=SITE_TEAL, edgecolor=SITE_TEAL_DARK)
     plt.title(title)
-    plt.xticks(range(len(labels)), labels, rotation=rotation, ha="right" if rotation else "center")
+    plt.xticks(range(len(labels)), labels, rotation=rotation,
+               ha="right" if rotation else "center")
+    plt.grid(axis="y", alpha=0.25)
     plt.tight_layout()
     return fig_to_b64()
 
-def donut_chart(labels, values, title):
-    total = sum(values) or 1.0
-    pct = [v / total for v in values]
-    plt.figure(figsize=(6, 6))
-    wedges, _ = plt.pie(
-        pct, startangle=90,
-        wedgeprops=dict(width=0.45, edgecolor="white")
-    )
-    plt.title(title)
-    lbl = [f"{l} ({round(100*p,1)}%)" for l, p in zip(labels, pct)]
-    plt.legend(wedges, lbl, loc="center left", bbox_to_anchor=(1, 0.5))
-    return fig_to_b64()
+# ---------- Donut interactif (ECharts) ----------
+def echarts_donut_html(labels, values, title, elem_id="donut_global"):
+    """
+    Retourne le HTML + script ECharts (donut interactif) prêt à insérer dans la page.
+    - labels/values : listes Python -> injectées en JSON
+    - échappement des templates JS `\${...}` pour éviter l'interprétation par Python
+    """
+    data_labels = json.dumps(labels, ensure_ascii=False)
+    data_values = json.dumps(values)
+    palette     = json.dumps(ECHARTS_PALETTE)
+    # NB: on échappe bien les ${...} pour JS avec \$
+    return f"""
+<div id="{elem_id}" class="chart" style="width:100%;min-height:420px;"></div>
+<script>
+(function(){{
+  const el = document.getElementById("{elem_id}");
+  const chart = echarts.init(el, null, {{ renderer: 'canvas' }});
 
-# ---------- Config des specialites ----------
+  const labels = {data_labels};
+  const values = {data_values};
+  const total  = values.reduce((a,b)=>a+b, 0) || 1;
+  const data   = labels.map((name,i)=>({{ name, value: values[i] }}));
+
+  const option = {{
+    backgroundColor: 'transparent',
+    tooltip: {{
+      trigger: 'item',
+      formatter: (p) => {{
+        const pct = Math.round((p.value/total)*1000)/10;
+        return `\\${{p.name}} : <b>\\${{p.value}}</b> (\\${{pct}}%)`;
+      }}
+    }},
+    legend: {{
+      type: 'scroll',
+      bottom: 0,
+      textStyle: {{ color: '{SITE_TEXT}' }},
+      itemWidth: 18, itemHeight: 12
+    }},
+    series: [{{
+      name: '{html.escape(title)}',
+      type: 'pie',
+      radius: ['45%','70%'],
+      center: ['50%','45%'],
+      avoidLabelOverlap: true,
+      itemStyle: {{
+        borderRadius: 2,
+        borderColor: '{SITE_BG_DARK}',
+        borderWidth: 1
+      }},
+      label: {{ show: false }},
+      emphasis: {{ label: {{ show: true, fontWeight: 'bold', color: '{SITE_TEXT}' }} }},
+      data: data,
+      color: {palette}
+    }}]
+  }};
+
+  chart.setOption(option);
+  window.addEventListener('resize', ()=>chart.resize());
+}})();
+</script>
+"""
+
+# ---------- Config des spécialités ----------
 SPECIALITES = [
     ("agents_police",     "Agents de police",      "agents"),
     ("asvp",              "ASVP",                  "asvp"),
-    ("gardes_champetres", "Gardes champetres",     "gardes"),
-    ("maitre_chien",      "Maitres-chiens",        "maitres"),
+    ("gardes_champetres", "Gardes champêtres",     "gardes"),
+    ("maitre_chien",      "Maîtres-chiens",        "maitres"),
     ("chien_police",      "Chiens de police",      "chiens"),
 ]
 
@@ -106,6 +181,9 @@ def nav_links(active_slug=""):
 
 # ---------- Squelette HTML ----------
 def page_wrap(title, active_slug, body_html):
+    """
+    Injecte aussi ECharts via CDN + petit style pour s'accorder au thème.
+    """
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -113,6 +191,18 @@ def page_wrap(title, active_slug, body_html):
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>{html.escape(title)}</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- ECharts (pour le donut interactif de l'index) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    body {{ background:{SITE_BG_DARK}; color:{SITE_TEXT}; }}
+    .chart-img {{ max-width:100%; height:auto; display:block; }}
+    .card {{ background:rgba(255,255,255,0.03); border:1px solid #16333a; border-radius:10px; padding:12px; }}
+    .bloc {{ margin: 18px 0; }}
+    .table-wrap table.counts th, .table-wrap table.counts td {{ border-color:#24424a; }}
+    .topbar, .subnav, .footer {{ background:rgba(255,255,255,0.02); border-top:1px solid #16333a; border-bottom:1px solid #16333a; }}
+    a {{ color:{SITE_TEAL}; }}
+    .quick a.active {{ color:#fff; background:{SITE_TEAL_DARK}; padding:3px 8px; border-radius:8px; }}
+  </style>
 </head>
 <body>
   {nav_links(active_slug)}
@@ -155,22 +245,20 @@ def build_all():
             total_by_spec[key] += val
             dep_values[key][dep] += val
 
-    # ---------- index.html : donut global ----------
-    if _has_mpl:
-        donut_src = donut_chart(
-            [lbl for _, lbl, _ in SPECIALITES],
-            [total_by_spec[key] for key, _, _ in SPECIALITES],
-            "Répartition des spécialités (100%)"
-        )
-        donut_html = f"<img class='chart-img' src='{donut_src}' alt='Donut specialites' />"
-    else:
-        donut_html = "<p class='muted'>Matplotlib non installé. Lance: pip install matplotlib</p>"
+    # ---------- index.html : donut global (INTERACTIF) ----------
+    donut_html = echarts_donut_html(
+        [lbl for _, lbl, _ in SPECIALITES],
+        [total_by_spec[key] for key, _, _ in SPECIALITES],
+        "Répartition des spécialités (100%)",
+        elem_id="donut_global"
+    )
 
     index_body = f"""
 <section class="bloc">
-  <h3>Donut global des spécialités</h3>
-  <p class="muted">Part de chaque spécialité dans le total (100%).</p>
+  <h3>Donut global des spécialités (interactif)</h3>
+  <p class="muted">Survolez pour voir la valeur et le pourcentage.</p>
   <div class="grid"><figure class="card"><figcaption>Répartition</figcaption>{donut_html}</figure></div>
+  <noscript><p>Activez JavaScript pour voir le graphique interactif.</p></noscript>
 </section>
 <section class="bloc">
   <h3>Totaux globaux</h3>
@@ -204,15 +292,13 @@ def build_all():
         total_hab = sum(dep_hab.values()) or 1.0
         rate_global = round((total_val / total_hab) * 10000.0, 2)
 
-        # Graphiques
+        # Graphiques (Top 15 absolu + Taux/10k) — couleurs assorties
         if _has_mpl:
-            # Top 15 absolu
             dep_sorted_abs = sorted(dep_values[key].items(), key=lambda x: x[1], reverse=True)
             labels_abs = [d for d,_ in dep_sorted_abs[:15]]
             values_abs = [v for _,v in dep_sorted_abs[:15]]
             img_abs = bar_chart(labels_abs, values_abs, f"Top 15 {label} (absolu)", rotation=45)
 
-            # Taux 10k habitants
             rates = []
             for d in dep_values[key]:
                 hab = dep_hab[d]

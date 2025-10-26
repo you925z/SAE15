@@ -175,3 +175,16 @@ table.counts{ min-width:420px; }
   border-top:1px solid var(--line);
   margin-top:28px;
 }
+
+/* Empêche le scroll quand le menu est ouvert */
+.has-menu-open { overflow: hidden; }
+
+/* Overlay */
+.overlay { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 90; }
+.has-menu-closed .overlay { display: none; }
+
+/* Menu latéral */
+.menu { position: fixed; inset: 0 auto 0 0; width: 320px; max-width: 85vw;
+        transform: translateX(-100%); transition: transform .25s ease; z-index: 100;
+        background: #fff; box-shadow: 2px 0 20px rgb(0 0 0 / .15); padding: 1rem; }
+.has-menu-open .menu { transform: translateX(0); }
