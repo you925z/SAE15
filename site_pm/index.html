@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PM - Donut global</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- ECharts (pour le donut interactif de l'index) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    body { background:#0f1b24; color:#dfe9e9; }
+    .chart-img { max-width:100%; height:auto; display:block; }
+    .card { background:rgba(255,255,255,0.03); border:1px solid #16333a; border-radius:10px; padding:12px; }
+    .bloc { margin: 18px 0; }
+    .table-wrap table.counts th, .table-wrap table.counts td { border-color:#24424a; }
+    .topbar, .subnav, .footer { background:rgba(255,255,255,0.02); border-top:1px solid #16333a; border-bottom:1px solid #16333a; }
+    a { color:#3aa59f; }
+    .quick a.active { color:#fff; background:#2f7a76; padding:3px 8px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  
+<header class="topbar">
+    <div class="brand">
+    <h1>Police Municipale</h1>
+  </div>
+  <nav class="quick"><a class="active" href="index.html">Accueil / Donut</a>
+<a class="" href="agents.html">Agents de police</a>
+<a class="" href="asvp.html">ASVP</a>
+<a class="" href="gardes.html">Gardes champêtres</a>
+<a class="" href="maitres.html">Maîtres-chiens</a>
+<a class="" href="chiens.html">Chiens de police</a></nav>
+</header>
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+<aside class="menu" id="menu"><a class="active" href="index.html">Accueil / Donut</a>
+<a class="" href="agents.html">Agents de police</a>
+<a class="" href="asvp.html">ASVP</a>
+<a class="" href="gardes.html">Gardes champêtres</a>
+<a class="" href="maitres.html">Maîtres-chiens</a>
+<a class="" href="chiens.html">Chiens de police</a></aside>
+
+  <main class="content">
+    
+<section class="bloc">
+  <h3>Donut global des spécialités (interactif)</h3>
+  <p class="muted">Survolez pour voir la valeur et le pourcentage.</p>
+  <div class="grid"><figure class="card"><figcaption>Répartition</figcaption>
+<div id="donut_global" class="chart" style="width:100%;min-height:420px;"></div>
+<script>
+(function(){
+  const el = document.getElementById("donut_global");
+  const chart = echarts.init(el, null, { renderer: 'canvas' });
+
+  const labels = ["Agents de police", "ASVP", "Gardes champêtres", "Maîtres-chiens", "Chiens de police"];
+  const values = [28170.0, 7864.0, 602.0, 483.0, 453.0];
+  const total  = values.reduce((a,b)=>a+b, 0) || 1;
+  const data   = labels.map((name,i)=>({ name, value: values[i] }));
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+  tooltip: {
+    trigger: 'item',
+   formatter: (p) => `${p.name} : ${p.value} (${p.percent}%)`
+  }
+    },
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+      textStyle: { color: '#dfe9e9' },
+      itemWidth: 18, itemHeight: 12
+    },
+    series: [{
+      name: 'Répartition des spécialités (100%)',
+      type: 'pie',
+      radius: ['45%','70%'],
+      center: ['50%','45%'],
+      avoidLabelOverlap: true,
+      itemStyle: {
+        borderRadius: 2,
+        borderColor: '#0f1b24',
+        borderWidth: 1
+      },
+      label: { show: false },
+      emphasis: { label: { show: true, fontWeight: 'bold', color: '#dfe9e9' } },
+      data: data,
+      color: ["#7fd8d0", "#62c9c0", "#49b8af", "#3aa59f", "#2f8f89", "#2a7a75", "#256864", "#1f5856", "#174746", "#113a3a"]
+    }]
+  };
+
+  chart.setOption(option);
+  window.addEventListener('resize', ()=>chart.resize());
+})();
+</script>
+</figure></div>
+  <noscript><p>Activez JavaScript pour voir le graphique interactif.</p></noscript>
+</section>
+<section class="bloc">
+  <h3>Totaux globaux</h3>
+  <div class="table-wrap">
+    <table class="counts">
+      <thead><tr><th>Spécialité</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Agents de police</td><td>28170</td></tr><tr><td>ASVP</td><td>7864</td></tr><tr><td>Gardes champêtres</td><td>602</td></tr><tr><td>Maîtres-chiens</td><td>483</td></tr><tr><td>Chiens de police</td><td>453</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+  </main>
+  <footer class="footer"> De OUAMRANE Younes et CHAROUAK Rayan </footer>
+  <script>
+    function toggleMenu(){
+      document.getElementById('menu').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+    function closeMenu(){
+      document.getElementById('menu').classList.remove('open');
+      document.getElementById('overlay').classList.remove('show');
+    }
+  </script>
+</body>
+</html>
