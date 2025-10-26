@@ -1,0 +1,290 @@
+# build_site.py — Génère index.html (modèle fusionné + tableaux + graphiques statiques)
+from pathlib import Path
+from collections import Counter, defaultdict
+import csv, html, io, base64
+
+# --- Graphiques (matplotlib) ---
+import matplotlib
+matplotlib.use("Agg")  # rendu hors-écran
+import matplotlib.pyplot as plt
+
+CSV_PATH = Path("enquete-police-municipal.csv")
+OUT_HTML = Path("index.html")
+
+# ------------------ utilitaires CSV ------------------
+def _detect_delimiter(sample: str) -> str:
+    return ";" if sample.count(";") > sample.count(",") else ","
+
+def read_rows(csv_path: Path):
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        sample = f.read(4096)
+        delim = _detect_delimiter(sample)
+        f.seek(0)
+        reader = csv.DictReader(f, delimiter=delim)
+        for row in reader:
+            yield {(k or "").strip(): (v or "").strip() for k, v in row.items()}
+
+def to_num(s: str) -> float:
+    if s is None or s == "":
+        return 0.0
+    try:
+        return float(str(s).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+# ------------------ génération d'images base64 ------------------
+def fig_to_base64():
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", bbox_inches="tight", dpi=150)
+    plt.close()
+    buf.seek(0)
+    return "data:image/png;base64," + base64.b64encode(buf.read()).decode("ascii")
+
+def bar_chart(labels, values, title, rotation=0):
+    plt.figure(figsize=(9, 4.5))
+    plt.bar(range(len(labels)), values)
+    plt.title(title)
+    plt.xticks(range(len(labels)), labels, rotation=rotation, ha="right" if rotation else "center")
+    plt.ylabel("")
+    plt.tight_layout()
+    return fig_to_base64()
+
+# ------------------ rendus HTML ------------------
+def render_hero() -> str:
+    return """
+    <section class="hero">
+      <div class="hero-inner">
+        <h1>Bienvenue sur le site de la <span>Police Municipale</span></h1>
+        <p>Statistiques, effectifs et informations par commune et par département.</p>
+      </div>
+    </section>
+    """
+
+def render_counts(rows, dep_key="departement") -> str:
+    c = Counter(r.get(dep_key, "") for r in rows if r.get(dep_key, ""))
+    if not c:
+        return "<p class='warn'>⚠️ Colonne <code>departement</code> introuvable ou vide.</p>"
+    lines = "\n".join(
+        f"<tr><td>{html.escape(dep)}</td><td>{n}</td></tr>"
+        for dep, n in sorted(c.items(), key=lambda x: x[0])
+    )
+    return f"""
+    <table class="counts">
+      <thead><tr><th>Département</th><th>Nb communes</th></tr></thead>
+      <tbody>{lines}</tbody>
+    </table>
+    """
+
+def render_table(headers, rows, max_rows=120) -> str:
+    thead = "".join(f"<th>{html.escape(h)}</th>" for h in headers)
+    body = []
+    for i, r in enumerate(rows):
+        if i >= max_rows: break
+        tds = "".join(f"<td>{html.escape(r.get(h, ''))}</td>" for h in headers)
+        body.append(f"<tr>{tds}</tr>")
+    return f"""
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr>{thead}</tr></thead>
+        <tbody>{''.join(body)}</tbody>
+      </table>
+      <p class="muted">Aperçu limité à {max_rows} lignes.</p>
+    </div>
+    """
+
+# ------------------ page complète ------------------
+def build_page(rows):
+    headers = list(rows[0].keys())
+
+    # Agrégations
+    specialties = ["agents_police", "asvp", "gardes_champetres", "maitre_chien", "chien_police"]
+
+    # Totaux globaux par spécialité
+    spec_tot = Counter({k: 0 for k in specialties})
+    # Par département : habitants & agents_police
+    dep_hab = defaultdict(float)
+    dep_agents = defaultdict(float)
+    # Comptage communes par département
+    dep_communes = Counter()
+
+    for r in rows:
+        dep = r.get("departement", "")
+        if dep:
+            dep_communes[dep] += 1
+
+        # habitants / agents
+        dep_hab[dep] += to_num(r.get("habitants"))
+        dep_agents[dep] += to_num(r.get("agents_police"))
+
+        for k in specialties:
+            spec_tot[k] += to_num(r.get(k))
+
+    # --- Graphique 1 : totaux par spécialité (barres) ---
+    labels_specs = ["Agents police", "ASVP", "Gardes champêtres", "Maîtres-chiens", "Chiens police"]
+    values_specs = [
+        spec_tot["agents_police"],
+        spec_tot["asvp"],
+        spec_tot["gardes_champetres"],
+        spec_tot["maitre_chien"],
+        spec_tot["chien_police"],
+    ]
+    img_specs = bar_chart(labels_specs, values_specs, "Totaux par spécialité", rotation=15)
+
+    # --- Graphique 2 : taux de policiers par département (pour 10 000 hab., top 15) ---
+    rate_per_dep = []
+    for dep in dep_hab:
+        hab = dep_hab[dep]
+        agents = dep_agents[dep]
+        if hab > 0:
+            rate = (agents / hab) * 10000.0
+            rate_per_dep.append((dep, rate))
+    rate_per_dep.sort(key=lambda x: x[1], reverse=True)
+    top = rate_per_dep[:15]
+    labels_rate = [d for d, _ in top]
+    values_rate = [round(v, 2) for _, v in top]
+    img_rates = bar_chart(labels_rate, values_rate, "Taux de policiers par département (pour 10 000 hab.)", rotation=45)
+
+    # Blocs
+    counts_html = render_counts(rows, dep_key="departement")
+    table_html  = render_table(headers, rows)
+
+    # Page
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Police Municipale – Données CSV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    :root{{--bg:#0e1016;--panel:#121319;--text:#fff;--muted:#cbd5e1;--line:#2b2f3a;--primary:#7c8cff;--accent:#4f9cf9}}
+    *{{box-sizing:border-box}}
+    body{{margin:0;font-family:Inter,Arial,system-ui;background:var(--bg);color:var(--text)}}
+    .topbar{{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;background:#1a1a1a;border-bottom:1px solid #2a2a2a}}
+    .brand{{display:flex;align-items:center;gap:14px}}
+    .brand img{{height:42px;width:auto;border-radius:6px;object-fit:cover;background:#0b0b0b}}
+    .brand h1{{font-size:1.35rem;margin:0}}
+    .quick a{{color:var(--muted);text-decoration:none;margin-left:16px}}
+    .quick a:hover{{color:#fff}}
+    .subnav{{display:flex;gap:28px;align-items:center;padding:12px 28px;background:#15161c;border-bottom:1px solid #222}}
+    .subnav a{{color:#e5e7eb;text-decoration:none;font-weight:600}}
+    .subnav a:hover{{color:var(--accent)}}
+    .burger{{cursor:pointer;background:#000;color:#fff;border-radius:10px;padding:6px 10px}}
+    .menu{{position:fixed;top:0;left:-260px;height:100%;width:260px;background:#fff;color:#111;padding:60px 20px;box-shadow:2px 0 10px rgba(0,0,0,.35);transition:left .3s ease;z-index:1002}}
+    .menu a{{display:block;margin:12px 0;color:#111;text-decoration:none;font-weight:600}}
+    .menu.open{{left:0}}
+    .overlay{{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;visibility:hidden;transition:opacity .3s;z-index:1001}}
+    .overlay.show{{opacity:1;visibility:visible}}
+    .hero{{background:linear-gradient(180deg,rgba(124,140,255,.15),rgba(0,0,0,0)), url('image1.jpg') center/cover no-repeat, #0e1016; padding:70px 24px}}
+    .hero-inner{{max-width:1200px;margin:0 auto}}
+    .hero h1{{font-size:clamp(28px,4.5vw,56px);margin:0 0 8px 0;font-weight:800;letter-spacing:.3px}}
+    .hero h1 span{{color:var(--primary)}}
+    .hero p{{color:var(--muted);margin:6px 0 0 0;font-size:1.1rem}}
+    main{{padding:26px}}
+    .bloc{{background:var(--panel);padding:18px 18px 24px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.28);max-width:1200px;margin:18px auto}}
+    h2{{margin:6px 0 12px;font-size:1.4rem}}
+    .muted{{color:var(--muted)}}
+    .warn{{color:#fbbf24}}
+    .table-wrap{{overflow:auto}}
+    table{{border-collapse:collapse;width:100%;min-width:820px}}
+    thead th{{background:#1f2937;text-align:left}}
+    th,td{{border:1px solid var(--line);padding:8px 10px}}
+    .grid-2{{display:grid;grid-template-columns:1fr;gap:20px}}
+    @media(min-width:900px){{.grid-2{{grid-template-columns:1fr 1fr}}}}
+    .chart-img{{width:100%;max-width:900px;border:1px solid #21232b;border-radius:10px;display:block}}
+    footer{{color:var(--muted);text-align:center;padding:30px 10px}}
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="burger" onclick="toggleMenu()">&#9776;</div>
+      <img src="image1.jpg" alt="Logo">
+      <h1>Police Municipale</h1>
+    </div>
+    <nav class="quick">
+      <a href="#apercu">Aperçu</a>
+      <a href="#par-departement">Départements</a>
+      <a href="#spec">Spécialités</a>
+      <a href="#taux">Taux policiers</a>
+    </nav>
+  </div>
+
+  <nav class="subnav">
+    <a href="#">Vos démarches</a>
+    <a href="#">Nous découvrir</a>
+    <a href="#">Nous informer</a>
+    <a href="#">Nous rejoindre</a>
+  </nav>
+
+  <div class="overlay" id="overlay" onclick="closeMenu()"></div>
+  <aside class="menu" id="menu">
+    <a href="#apercu">Aperçu CSV</a>
+    <a href="#par-departement">Communes par département</a>
+    <a href="#spec">Totaux par spécialité</a>
+    <a href="#taux">Taux policiers</a>
+  </aside>
+
+  {render_hero()}
+
+  <main>
+    <section class="bloc" id="apercu">
+      <h2>Aperçu du fichier CSV</h2>
+      <p class="muted">Colonnes détectées : {', '.join(html.escape(h) for h in headers)}</p>
+      {table_html}
+    </section>
+
+    <section class="bloc" id="par-departement">
+      <h2>Nombre de communes par département</h2>
+      <div class="grid-2">
+        <div>{counts_html}</div>
+        <div>
+          <p class="muted">Comptage de communes par valeur présente dans la colonne <code>departement</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="bloc" id="spec">
+      <h2>Totaux par spécialité (ensemble des communes)</h2>
+      <img class="chart-img" src="{img_specs}" alt="Graphique totaux par spécialité">
+    </section>
+
+    <section class="bloc" id="taux">
+      <h2>Taux de policiers par département (pour 10 000 habitants) — Top 15</h2>
+      <img class="chart-img" src="{img_rates}" alt="Graphique taux de policiers par département">
+      <p class="muted">Taux = (Σ agents_police / Σ habitants) × 10 000, agrégé par département.</p>
+    </section>
+  </main>
+
+  <footer>© {html.escape(Path.cwd().name)} — Page générée automatiquement depuis {html.escape(CSV_PATH.name)}</footer>
+
+  <script>
+  function toggleMenu(){{ 
+    document.getElementById('menu').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('show');
+  }}
+  function closeMenu(){{ 
+    document.getElementById('menu').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+  }}
+  </script>
+
+</body>
+</html>
+"""
+
+def main():
+    if not CSV_PATH.exists():
+        raise SystemExit(f"CSV introuvable : {CSV_PATH.resolve()}")
+    rows = list(read_rows(CSV_PATH))
+    if not rows:
+        OUT_HTML.write_text("<p>Aucune donnée.</p>", encoding="utf-8")
+        print("⚠️ CSV vide. index.html minimal généré.")
+        return
+    page = build_page(rows)
+    OUT_HTML.write_text(page, encoding="utf-8")
+    print(f"✅ Fichier généré : {OUT_HTML.resolve()}")
+
+if __name__ == "__main__":
+    main()
