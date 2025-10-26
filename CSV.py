@@ -51,25 +51,25 @@ with open("C:/Users/ouamr/SAE15/enquete-police-municipal.csv", newline='', encod
 
 #                  NOMBRE DE VILLE DANS UN DEPARTEMENT 
 
-def nb_ville_dep(filename):  
-    res = {}  
-    with open(filename, 'r', encoding='utf-8', newline='') as file:
-        csvreader = csv.DictReader(file, delimiter=',')
-        for row in csvreader:
-            dep = row.get('departement')
-            if dep:
-                if dep in res:
-                    res[dep] += 1  
-                else:
-                    res[dep] = 1   
-    return res
+#def nb_ville_dep(filename):  
+#    res = {}  
+#    with open(filename, 'r', encoding='utf-8', newline='') as file:
+#        csvreader = csv.DictReader(file, delimiter=',')
+#        for row in csvreader:
+#            dep = row.get('departement')
+#            if dep:
+#                if dep in res:
+#                    res[dep] += 1  
+#                else:
+#                    res[dep] = 1   
+#    return res
 
-fichier_csv = r"C:\Users\ouamr\SAE15\enquete-police-municipal.csv"
+#fichier_csv = r"C:\Users\ouamr\SAE15\enquete-police-municipal.csv"
 
-resultat = nb_ville_dep(fichier_csv)
+#resultat = nb_ville_dep(fichier_csv)
 
-for dep, nb in sorted(resultat.items()):
-    print(f"Département {dep} : {nb} villes")
+#for dep, nb in sorted(resultat.items()):
+##    print(f"Département {dep} : {nb} villes")
 
 
 
