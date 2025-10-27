@@ -13,9 +13,10 @@
   
 <header class="topbar">
     <div class="brand">
-    <h1>Police Municipale</h1>
+    <h1>SAE15</h1>
   </div>
-  <nav class="quick"><a class="active" href="index.html">Accueil / Donut</a>
+
+  <nav class="quick"><a class="active" href="index.html">Page d'accueil</a>
 <a class="" href="agents.html">Agents de police</a>
 <a class="" href="asvp.html">ASVP</a>
 <a class="" href="gardes.html">Gardes champêtres</a>
@@ -23,7 +24,7 @@
 <a class="" href="chiens.html">Chiens de police</a></nav>
 </header>
 <div class="overlay" id="overlay" onclick="closeMenu()"></div>
-<aside class="menu" id="menu"><a class="active" href="index.html">Accueil / Donut</a>
+<aside class="menu" id="menu"><a class="active" href="index.html">Page d'accueil</a>
 <a class="" href="agents.html">Agents de police</a>
 <a class="" href="asvp.html">ASVP</a>
 <a class="" href="gardes.html">Gardes champêtres</a>
@@ -31,12 +32,29 @@
 <a class="" href="chiens.html">Chiens de police</a></aside>
 
   <main class="content">
-    
+ <section class="bloc">
+  <h3>Traitement de donnée</h3>
+  <p class="muted"> Ce site web est dédié à un projet à faire , qui consiste à traiter de grande données stocké dans un fichier .csv . <br> En l'occurence , nous avons choisi d'étudier sur les effectifs de police par département , et par spécialité aussi .</a></p>
+</section>
+
 <section class="bloc">
-  <h3>Donut global des spécialités (interactif)</h3>
-  <p class="muted">Survolez pour voir la valeur et le pourcentage.</p>
-  <div class="grid"><figure class="card"><figcaption>Répartition</figcaption>
-<div id="donut_global" class="chart" style="width:100%;min-height:420px;"></div>
+  <h3>Graphe permettant de voir le pourcentage des spécialités ;</h3>
+    <p class="muted">Mettez le curseur sur chaque bout du graphe afin de voir son pourcentage.</p>
+
+
+  <div class="grid">
+    <figure class="card">
+      <figcaption>Répartition</figcaption>
+      <div id="donut_global" class="chart" style="width:100%;min-height:420px;"></div>
+    </figure>
+    
+    <div class="bloc-texte-droite">
+      <p> Ce graphe , aussi appelé "donuts" permet de visualiser les inégalités <br>entre les différentes spécialités . <br> 
+    Nous remarquons que les Agents de police sont maojoritaire , <br>ce qui est normal car c'est le status de base ,<br> toute autorité prend ce status<br>
+    Or , les gardes champêtre ou les maîtres-chien ,<br>sont en inferiorité par rapport à la ASVP . </p>
+      </div>
+  </div>
+</section>
 <script>
 (function(){
   const el = document.getElementById("donut_global");
@@ -84,13 +102,12 @@
 })();
 </script>
 </figure></div>
-  <noscript><p>Activez JavaScript pour voir le graphique interactif.</p></noscript>
-</section>
+
 <section class="bloc">
   <h3>Totaux globaux</h3>
   <div class="table-wrap">
     <table class="counts">
-      <thead><tr><th>Spécialité</th><th>Total</th></tr></thead>
+      <thead><tr><th>Spécialité</th><th>Total des effectifs</th></tr></thead>
       <tbody>
         <tr><td>Agents de police</td><td>28170</td></tr><tr><td>ASVP</td><td>7864</td></tr><tr><td>Gardes champêtres</td><td>602</td></tr><tr><td>Maîtres-chiens</td><td>483</td></tr><tr><td>Chiens de police</td><td>453</td></tr>
       </tbody>
@@ -99,7 +116,7 @@
 </section>
 
   </main>
-  <footer class="footer"> De OUAMRANE Younes et CHAROUAK Rayan </footer>
+  <footer class="footer"> De OUAMRANE Younes et CHAMOUAK Rayan </footer>
   <script>
     function toggleMenu(){
       document.getElementById('menu').classList.toggle('open');
