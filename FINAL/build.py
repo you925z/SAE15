@@ -193,9 +193,9 @@ def build_page(data):
     <div class="kpis">
       <div class="kpi"><div class="label">Départements</div><div class="value">{data['nb_dep']}</div></div>
       <div class="kpi"><div class="label">Population totale</div><div class="value">{fmt_int(data['total_pop'])}</div></div>
-      <div class="kpi"><div class="label">Total général</div><div class="value">{fmt_int(data['total_general'])}</div></div>
-      <div class="kpi"><div class="label">Moyenne / département</div><div class="value">{fmt_int(data['moyenne_dep'])}</div></div>
-      <div class="kpi"><div class="label">Taux global / 10 000</div><div class="value">{fmt_float(data['taux_10k'],2)}</div></div>
+      <div class="kpi"><div class="label">Effectif total</div><div class="value">{fmt_int(data['total_general'])}</div></div>
+      <div class="kpi"><div class="label">Effectif par département</div><div class="value">{fmt_int(data['moyenne_dep'])}</div></div>
+      <div class="kpi"><div class="label">Taux de policiers pour 10 000 habitants</div><div class="value">{fmt_float(data['taux_10k'],2)}</div></div>
     </div>
     """
 
@@ -225,22 +225,22 @@ def build_page(data):
   </section>
 
   <section class="card" id="totaux">
-    <h2>Tableau 1 — Totaux par spécialité</h2>
+    <h2>Tableau 1 — Tota de policiers par spécialité</h2>
     {table_totaux(data['totaux'], data['total_general'])}
   </section>
 
   <section class="card" id="top10">
-    <h2>Tableau 2 — Top 10 départements (total)</h2>
+    <h2>Tableau 2 — Top 10 départements avec le plus d'effectif (total)</h2>
     {table_top10_abs(data['total_dep'])}
   </section>
 
   <section class="card" id="taux10k">
-    <h2>Tableau 3 — Classement par taux / 10 000 habitants</h2>
+    <h2>Tableau 3 — Taux de policiers pour 10 000 habitants par département</h2>
     {table_top10_rate(data['total_dep'], data['pop_dep'])}
   </section>
 
   <section class="card" id="par-dep">
-    <h2>Tableau 4 — Par département (spécialités en colonnes)</h2>
+    <h2>Tableau 4 — Effectif par département (spécialités en colonnes)</h2>
     {table_par_departement(data['dep_list'], data['val_dep'])}
   </section>
 
